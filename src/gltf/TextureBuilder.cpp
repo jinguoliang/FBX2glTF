@@ -56,13 +56,13 @@ std::shared_ptr<TextureData> TextureBuilder::combine(
       if (!fileLoc.empty()) {
         info.pixels = stbi_load(fileLoc.c_str(), &info.width, &info.height, &info.channels, 0);
         if (!info.pixels) {
-          fmt::printf("Warning: merge texture [%d](%s) could not be loaded.\n", rawTexIx, name);
+          fmt::fprintf(stderr, "Warning: merge texture [%d](%s) could not be loaded.\n", rawTexIx, name);
         } else {
           if (width < 0) {
             width = info.width;
             height = info.height;
           } else if (width != info.width || height != info.height) {
-            fmt::printf(
+            fmt::fprintf(stderr, 
                 "Warning: texture %s (%d, %d) can't be merged with previous texture(s) of dimension (%d, %d)\n",
                 name,
                 info.width,
@@ -128,7 +128,7 @@ std::shared_ptr<TextureData> TextureBuilder::combine(
       mergedPixels.data(),
       width * channels);
   if (!res) {
-    fmt::printf("Warning: failed to generate merge texture '%s'.\n", mergedFilename);
+    fmt::fprintf(stderr, "Warning: failed to generate merge texture '%s'.\n", mergedFilename);
     return nullptr;
   }
 
@@ -142,19 +142,19 @@ std::shared_ptr<TextureData> TextureBuilder::combine(
     const std::string imagePath = outputFolder + imageFilename;
     FILE* fp = fopen(imagePath.c_str(), "wb");
     if (fp == nullptr) {
-      fmt::printf("Warning:: Couldn't write file '%s' for writing.\n", imagePath);
+      fmt::fprintf(stderr, "Warning:: Couldn't write file '%s' for writing.\n", imagePath);
       return nullptr;
     }
 
     if (fwrite(imgBuffer.data(), imgBuffer.size(), 1, fp) != 1) {
-      fmt::printf(
+      fmt::fprintf(stderr, 
           "Warning: Failed to write %lu bytes to file '%s'.\n", imgBuffer.size(), imagePath);
       fclose(fp);
       return nullptr;
     }
     fclose(fp);
     if (verboseOutput) {
-      fmt::printf("Wrote %lu bytes to texture '%s'.\n", imgBuffer.size(), imagePath);
+      fmt::fprintf(stderr, "Wrote %lu bytes to texture '%s'.\n", imgBuffer.size(), imagePath);
     }
     image = new ImageData(mergedName, imageFilename);
   }
@@ -185,7 +185,7 @@ std::shared_ptr<TextureData> TextureBuilder::simple(int rawTexIndex, const std::
         mimeType = ImageUtils::suffixToMimeType(suffix.value());
       } else {
         mimeType = "image/jpeg";
-        fmt::printf(
+        fmt::fprintf(stderr, 
             "Warning: Can't deduce mime type of texture '%s'; using %s.\n",
             rawTexture.fileLocation,
             mimeType);
@@ -201,7 +201,7 @@ std::shared_ptr<TextureData> TextureBuilder::simple(int rawTexIndex, const std::
     if (!FileUtils::FileExists(outputPath) && srcAbs != dstAbs) {
       if (FileUtils::CopyFile(rawTexture.fileLocation, outputPath, true)) {
         if (verboseOutput) {
-          fmt::printf("Copied texture '%s' to output folder: %s\n", textureName, outputPath);
+          fmt::fprintf(stderr, "Copied texture '%s' to output folder: %s\n", textureName, outputPath);
         }
       } else {
         // no point commenting further on read/write error; CopyFile() does enough of that, and we

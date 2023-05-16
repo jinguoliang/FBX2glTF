@@ -79,7 +79,7 @@ std::unique_ptr<FbxTraditionalMaterialInfo> FbxTraditionalMaterialResolver::reso
     std::tie(vec, colTex, facTex) = getSurfaceValues(colName, facName);
     if (colTex) {
       if (facTex) {
-        fmt::printf(
+        fmt::fprintf(stderr, 
             "Warning: Mat [%s]: Can't handle both %s and %s textures; discarding %s.\n",
             name,
             colName,
@@ -115,13 +115,13 @@ std::unique_ptr<FbxTraditionalMaterialInfo> FbxTraditionalMaterialResolver::reso
   std::tie(transparency, colTex, facTex) = getSurfaceValues(
       FbxSurfaceMaterial::sTransparentColor, FbxSurfaceMaterial::sTransparencyFactor);
   if (colTex) {
-    fmt::printf(
+    fmt::fprintf(stderr, 
         "Warning: Mat [%s]: Can't handle texture for %s; discarding.\n",
         name,
         FbxSurfaceMaterial::sTransparentColor);
   }
   if (facTex) {
-    fmt::printf(
+    fmt::fprintf(stderr, 
         "Warning: Mat [%s]: Can't handle texture for %s; discarding.\n",
         name,
         FbxSurfaceMaterial::sTransparencyFactor);

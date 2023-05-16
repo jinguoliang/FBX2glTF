@@ -40,6 +40,153 @@
 #define ALTERNATIVE_SLASH_CHAR '\\'
 #endif
 
+class FbxStdinStream : public FbxStream {
+  bool m_bVerbose = false;
+  EState m_eState = eClosed;
+  std::vector<unsigned char> m_vcBuffer;
+  mutable unsigned int m_iBufferPos = 0;
+
+public:
+  virtual bool Open(void* pStreamData) {
+    unsigned char c;
+    while (std::cin.read(reinterpret_cast<char*>(&c), sizeof(unsigned char))) {
+      m_vcBuffer.push_back(c);
+    }
+
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Open %d\n", m_vcBuffer.size());
+    }
+
+    m_eState = eOpen;
+    return true;
+  }
+
+  virtual bool Close() {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Close\n");
+    }
+    m_eState = eClosed;
+    return true;
+  }
+
+  virtual bool IsOpen() const {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::IsOpen\n");
+    }
+    return m_eState == eOpen;
+  }
+
+  virtual EState GetState() {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::GetState\n");
+    }
+    return m_eState;
+  }
+
+  virtual int Read(void* pBuffer, int pSize) const {
+    unsigned const char* ptr = m_vcBuffer.data();
+    ptr += m_iBufferPos;
+
+    int bytes_to_read = std::min(pSize, (int)(m_vcBuffer.size() - m_iBufferPos));
+
+    memcpy(pBuffer, ptr, bytes_to_read);
+
+    m_iBufferPos += bytes_to_read;
+
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Read %d of %d\n", bytes_to_read, pSize);
+    }
+    return bytes_to_read;
+  }
+
+  virtual int Write(const void* pBuffer, int pSize) {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Write\n");
+    }
+    return false; // stdin is read-only
+  }
+
+  virtual bool Flush() {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Flush\n");
+    }
+    return true; // no need to flush stdin
+  }
+
+  virtual int GetReaderID() const {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::GetReaderID\n");
+    }
+    return 0;
+  }
+
+  virtual int GetWriterID() const {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::GetWriterID\n");
+    }
+    return -1; // stdin is read-only
+  }
+
+  virtual void Seek(const FbxInt64& pOffset, const FbxFile::ESeekPos& pSeekPos) {
+    int before = m_iBufferPos;
+
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Seek %d, %d\n", pOffset, pSeekPos);
+    }
+
+    switch (pSeekPos) {
+      case FbxFile::ESeekPos::eBegin:
+        m_iBufferPos = pOffset;
+        break;
+      case FbxFile::ESeekPos::eCurrent:
+        m_iBufferPos += pOffset;
+        break;
+      case FbxFile::ESeekPos::eEnd:
+        m_iBufferPos = m_vcBuffer.size() - pOffset;
+        break;
+      default:
+        if (m_bVerbose) {
+          fmt::fprintf(stderr, "FbxStdinStream::Seek Unknown pOffset %d\n", pOffset);
+        }
+        break;
+    }
+
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::Seek Complete %d -> %d\n", before, m_iBufferPos);
+    }
+
+    // fseek(GetStream(), static_cast<long>(pOffset), pSeekPos == FbxFile::eBeginning ? SEEK_SET : SEEK_CUR);
+  }
+
+  virtual long GetPosition() const {
+    long pos = m_iBufferPos;
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::GetPosition %d\n", pos);
+    }
+    return pos;
+  }
+
+  virtual void SetPosition(long pPosition) {
+    m_iBufferPos = pPosition;
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::SetPosition\n");
+    }
+  }
+
+  virtual int GetError() const {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::GetError\n");
+    }
+    return 0;
+  }
+
+  virtual void ClearError() {
+    if (m_bVerbose) {
+      fmt::fprintf(stderr, "FbxStdinStream::ClearError\n");
+    }
+  }
+};
+
 float scaleFactor;
 
 static std::string NativeToUTF8(const std::string& str) {
@@ -165,7 +312,7 @@ static void ReadMesh(
   const FbxBlendShapesAccess blendShapes(pMesh);
 
   if (verboseOutput) {
-    fmt::printf(
+    fmt::fprintf(stderr, 
         "mesh %d: %s (skinned: %s)\n",
         rawSurfaceIndex,
         meshName,
@@ -516,7 +663,7 @@ static void ReadLight(RawModel& raw, FbxScene* pScene, FbxNode* pNode) {
       break;
     }
     default: {
-      fmt::printf("Warning:: Ignoring unsupported light type.\n");
+      fmt::fprintf(stderr, "Warning:: Ignoring unsupported light type.\n");
       return;
     }
   }
@@ -561,7 +708,7 @@ static void ReadCamera(RawModel& raw, FbxScene* pScene, FbxNode* pNode) {
       break;
     }
     default: {
-      fmt::printf("Warning:: Unsupported ApertureMode. Setting FOV to 0.\n");
+      fmt::fprintf(stderr, "Warning:: Unsupported ApertureMode. Setting FOV to 0.\n");
       break;
     }
   }
@@ -699,22 +846,22 @@ static void ReadNodeHierarchy(
 
   std::string newPath = path + "/" + nodeName;
   if (verboseOutput) {
-    fmt::printf("node %d: %s\n", nodeIndex, newPath.c_str());
+    fmt::fprintf(stderr, "node %d: %s\n", nodeIndex, newPath.c_str());
   }
 
   static int warnRrSsCount = 0;
   static int warnRrsCount = 0;
   if (lInheritType == FbxTransform::eInheritRrSs && parentId) {
     if (++warnRrSsCount == 1) {
-      fmt::printf(
+      fmt::fprintf(stderr, 
           "Warning: node %s uses unsupported transform inheritance type 'eInheritRrSs'.\n",
           newPath);
-      fmt::printf("         (Further warnings of this type squelched.)\n");
+      fmt::fprintf(stderr, "         (Further warnings of this type squelched.)\n");
     }
 
   } else if (lInheritType == FbxTransform::eInheritRrs) {
     if (++warnRrsCount == 1) {
-      fmt::printf(
+      fmt::fprintf(stderr, 
           "Warning: node %s uses unsupported transform inheritance type 'eInheritRrs'\n"
           "     This tool will attempt to partially compensate, but glTF cannot truly express this mode.\n"
           "     If this was a Maya export, consider turning off 'Segment Scale Compensate' on all joints.\n"
@@ -732,6 +879,7 @@ static void ReadNodeHierarchy(
   node.translation = toVec3f(localTranslation) * scaleFactor;
   node.rotation = toQuatf(localRotation);
   node.scale = toVec3f(localScaling);
+  node.pivot = toVec3f(pNode->GetRotationPivot(FbxNode::eSourcePivot)) * scaleFactor;
 
   if (parentId) {
     RawNode& parentNode = raw.GetNode(raw.GetNodeById(parentId));
@@ -816,11 +964,11 @@ static void ReadAnimations(RawModel& raw, FbxScene* pScene, const GltfOptions& o
     RawAnimation animation;
     animation.name = animStackName;
 
-    fmt::printf(
+    fmt::fprintf(stderr, 
         "Animation %s: [%lu - %lu]\n", std::string(animStackName), firstFrameIndex, lastFrameIndex);
 
     if (verboseOutput) {
-      fmt::printf("animation %zu: %s (%d%%)", animIx, (const char*)animStackName, 0);
+      fmt::fprintf(stderr, "animation %zu: %s (%d%%)", animIx, (const char*)animStackName, 0);
     }
 
     for (FbxLongLong frameIndex = firstFrameIndex; frameIndex <= lastFrameIndex; frameIndex++) {
@@ -969,7 +1117,7 @@ static void ReadAnimations(RawModel& raw, FbxScene* pScene, const GltfOptions& o
       }
 
       if (verboseOutput) {
-        fmt::printf(
+        fmt::fprintf(stderr, 
             "\ranimation %d: %s (%d%%)",
             animIx,
             (const char*)animStackName,
@@ -980,7 +1128,7 @@ static void ReadAnimations(RawModel& raw, FbxScene* pScene, const GltfOptions& o
     raw.AddAnimation(animation);
 
     if (verboseOutput) {
-      fmt::printf(
+      fmt::fprintf(stderr, 
           "\ranimation %d: %s (%d channels, %3.1f MB)\n",
           animIx,
           (const char*)animStackName,
@@ -1104,10 +1252,10 @@ static void FindFbxTextures(
       // always extend the mapping (even for files we didn't find)
       textureLocations.emplace(pFileTexture, fileLocation.c_str());
       if (fileLocation.empty()) {
-        fmt::printf(
+        fmt::fprintf(stderr, 
             "Warning: could not find a image file for texture: %s.\n", pFileTexture->GetName());
       } else if (verboseOutput) {
-        fmt::printf("Found texture '%s' at: %s\n", pFileTexture->GetName(), fileLocation);
+        fmt::fprintf(stderr, "Found texture '%s' at: %s\n", pFileTexture->GetName(), fileLocation);
       }
     }
   }
@@ -1117,7 +1265,8 @@ bool LoadFBXFile(
     RawModel& raw,
     const std::string fbxFileName,
     const std::set<std::string>& textureExtensions,
-    const GltfOptions& options) {
+    const GltfOptions& options,
+    const bool useStdin) {
   std::string fbxFileNameU8 = NativeToUTF8(fbxFileName);
   FbxManager* pManager = FbxManager::Create();
 
@@ -1136,14 +1285,31 @@ bool LoadFBXFile(
   pManager->SetIOSettings(pIoSettings);
 
   FbxImporter* pImporter = FbxImporter::Create(pManager, "");
+  FbxStdinStream stdin_stream;
 
-  if (!pImporter->Initialize(fbxFileNameU8.c_str(), -1, pManager->GetIOSettings())) {
-    if (verboseOutput) {
-      fmt::printf("%s\n", pImporter->GetStatus().GetErrorString());
+  if (useStdin) {
+    if (!stdin_stream.Open(nullptr)) {
+      fmt::fprintf(stderr, "Failed to open stdin stream.\n");
+      return false;
     }
-    pImporter->Destroy();
-    pManager->Destroy();
-    return false;
+
+    if (!pImporter->Initialize(&stdin_stream, nullptr, -1, pManager->GetIOSettings())) {
+      if (verboseOutput) {
+        fmt::fprintf(stderr, "%s\n", pImporter->GetStatus().GetErrorString());
+      }
+      pImporter->Destroy();
+      pManager->Destroy();
+      return false;
+    }
+  } else {
+    if (!pImporter->Initialize(fbxFileNameU8.c_str(), -1, pManager->GetIOSettings())) {
+      if (verboseOutput) {
+        fmt::fprintf(stderr, "%s\n", pImporter->GetStatus().GetErrorString());
+      }
+      pImporter->Destroy();
+      pManager->Destroy();
+      return false;
+    }
   }
 
   FbxScene* pScene = FbxScene::Create(pManager, "fbxScene");
@@ -1151,6 +1317,9 @@ bool LoadFBXFile(
   pImporter->Destroy();
 
   if (pScene == nullptr) {
+    if (verboseOutput) {
+      fmt::fprintf(stderr, "pScene is null.\n");
+    }
     pImporter->Destroy();
     pManager->Destroy();
     return false;

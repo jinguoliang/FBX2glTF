@@ -59,7 +59,7 @@ bool CreatePath(const std::string path) {
 bool CopyFile(const std::string& srcFilename, const std::string& dstFilename, bool createPath) {
   std::ifstream srcFile(srcFilename, std::ios::binary);
   if (!srcFile) {
-    fmt::printf("Warning: Couldn't open file %s for reading.\n", srcFilename);
+    fmt::fprintf(stderr, "Warning: Couldn't open file %s for reading.\n", srcFilename);
     return false;
   }
   // find source file length
@@ -68,13 +68,13 @@ bool CopyFile(const std::string& srcFilename, const std::string& dstFilename, bo
   srcFile.seekg(0, std::ios::beg);
 
   if (createPath && !CreatePath(dstFilename.c_str())) {
-    fmt::printf("Warning: Couldn't create directory %s.\n", dstFilename);
+    fmt::fprintf(stderr, "Warning: Couldn't create directory %s.\n", dstFilename);
     return false;
   }
 
   std::ofstream dstFile(dstFilename, std::ios::binary | std::ios::trunc);
   if (!dstFile) {
-    fmt::printf("Warning: Couldn't open file %s for writing.\n", dstFilename);
+    fmt::fprintf(stderr, "Warning: Couldn't open file %s for writing.\n", dstFilename);
     return false;
   }
   dstFile << srcFile.rdbuf();
@@ -82,7 +82,7 @@ bool CopyFile(const std::string& srcFilename, const std::string& dstFilename, bo
   if (srcSize == dstSize) {
     return true;
   }
-  fmt::printf(
+  fmt::fprintf(stderr, 
       "Warning: Only copied %lu bytes to %s, when %s is %lu bytes long.\n",
       dstSize,
       dstFilename,

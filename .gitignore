@@ -10,3 +10,4 @@ build/
 sdk/
 
 demo/.godot/
+.DS_Store
