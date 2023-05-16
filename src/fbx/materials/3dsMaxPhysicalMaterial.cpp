@@ -20,7 +20,7 @@ std::unique_ptr<FbxRoughMetMaterialInfo> Fbx3dsMaxPhysicalMaterialResolver::reso
 
   FbxString shadingModel = fbxMaterial->ShadingModel.Get();
   if (!shadingModel.IsEmpty() && shadingModel != "unknown") {
-    ::fmt::printf(
+    ::fmt::fprintf(stderr, 
         "Warning: Material %s has surprising shading model: %s\n",
         fbxMaterial->GetName(),
         shadingModel);
@@ -141,7 +141,7 @@ std::unique_ptr<FbxRoughMetMaterialInfo> Fbx3dsMaxPhysicalMaterialResolver::reso
   }
 
   if (verboseOutput && !unsupported.empty()) {
-    fmt::printf(
+    fmt::fprintf(stderr, 
         "Warning: 3dsMax Physical Material %s uses features glTF cannot express:\n  %s\n",
         fbxMaterial->GetName(),
         unsupported);

@@ -13,6 +13,7 @@ NodeData::NodeData(
     const Vec3f& translation,
     const Quatf& rotation,
     const Vec3f& scale,
+    const Vec3f& pivot,
     bool isJoint)
     : Holdable(),
       name(std::move(name)),
@@ -20,6 +21,7 @@ NodeData::NodeData(
       translation(translation),
       rotation(rotation),
       scale(scale),
+      pivot(pivot),
       children(),
       mesh(-1),
       camera(-1),
@@ -64,6 +66,7 @@ json NodeData::serialize() const {
   maybeAdd("translation", toStdVec(translation));
   maybeAdd("rotation", toStdVec(rotation));
   maybeAdd("scale", toStdVec(scale));
+  maybeAdd("pivot", toStdVec(pivot));
 
   if (!children.empty()) {
     result["children"] = children;

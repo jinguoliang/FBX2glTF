@@ -49,8 +49,8 @@ FbxMaterialsAccess::FbxMaterialsAccess(
 
     if (!surfaceMaterial) {
       if (++warnMtrCount == 1) {
-        fmt::printf("Warning: Reference to missing surface material.\n");
-        fmt::printf("         (Further warnings of this type squelched.)\n");
+        fmt::fprintf(stderr, "Warning: Reference to missing surface material.\n");
+        fmt::fprintf(stderr, "         (Further warnings of this type squelched.)\n");
       }
     }
 

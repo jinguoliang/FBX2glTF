@@ -77,21 +77,21 @@ static const std::vector<TriangleIndex> getIndexArray(const RawModel& raw) {
 }
 
 ModelData* Raw2Gltf(
-    std::ofstream& gltfOutStream,
+    std::ostream* gltfOutStream,
     const std::string& outputFolder,
     const RawModel& raw,
     const GltfOptions& options) {
   if (verboseOutput) {
-    fmt::printf("Building render model...\n");
+    fmt::fprintf(stderr, "Building render model...\n");
     for (int i = 0; i < raw.GetMaterialCount(); i++) {
-      fmt::printf(
+      fmt::fprintf(stderr, 
           "Material %d: %s [shading: %s]\n",
           i,
           raw.GetMaterial(i).name.c_str(),
           Describe(raw.GetMaterial(i).info->shadingModel));
     }
     if (raw.GetVertexCount() > 2 * raw.GetTriangleCount()) {
-      fmt::printf(
+      fmt::fprintf(stderr, 
           "Warning: High vertex count. Make sure there are no unnecessary vertex attributes. (see -keepAttribute cmd-line option)");
     }
   }
@@ -104,14 +104,14 @@ ModelData* Raw2Gltf(
       true);
 
   if (verboseOutput) {
-    fmt::printf("%7d vertices\n", raw.GetVertexCount());
-    fmt::printf("%7d triangles\n", raw.GetTriangleCount());
-    fmt::printf("%7d textures\n", raw.GetTextureCount());
-    fmt::printf("%7d nodes\n", raw.GetNodeCount());
-    fmt::printf("%7d surfaces\n", (int)materialModels.size());
-    fmt::printf("%7d animations\n", raw.GetAnimationCount());
-    fmt::printf("%7d cameras\n", raw.GetCameraCount());
-    fmt::printf("%7d lights\n", raw.GetLightCount());
+    fmt::fprintf(stderr, "%7d vertices\n", raw.GetVertexCount());
+    fmt::fprintf(stderr, "%7d triangles\n", raw.GetTriangleCount());
+    fmt::fprintf(stderr, "%7d textures\n", raw.GetTextureCount());
+    fmt::fprintf(stderr, "%7d nodes\n", raw.GetNodeCount());
+    fmt::fprintf(stderr, "%7d surfaces\n", (int)materialModels.size());
+    fmt::fprintf(stderr, "%7d animations\n", raw.GetAnimationCount());
+    fmt::fprintf(stderr, "%7d cameras\n", raw.GetCameraCount());
+    fmt::fprintf(stderr, "%7d lights\n", raw.GetLightCount());
   }
 
   std::unique_ptr<GltfModel> gltf(new GltfModel(options));
@@ -134,7 +134,7 @@ ModelData* Raw2Gltf(
       const RawNode& node = raw.GetNode(i);
 
       auto nodeData = gltf->nodes.hold(
-          new NodeData(node.name, node.translation, node.rotation, node.scale, node.isJoint));
+          new NodeData(node.name, node.translation, node.rotation, node.scale, node.pivot, node.isJoint));
 
       if (options.enableUserProperties) {
         nodeData->userProperties = node.userProperties;
@@ -162,7 +162,7 @@ ModelData* Raw2Gltf(
 
       AnimationData& aDat = *gltf->animations.hold(new AnimationData(animation.name, *accessor));
       if (verboseOutput) {
-        fmt::printf(
+        fmt::fprintf(stderr, 
             "Animation '%s' has %lu channels:\n",
             animation.name.c_str(),
             animation.channels.size());
@@ -173,7 +173,7 @@ ModelData* Raw2Gltf(
         const RawNode& node = raw.GetNode(channel.nodeIndex);
 
         if (verboseOutput) {
-          fmt::printf(
+          fmt::fprintf(stderr, 
               "  Channel %lu (%s) has translations/rotations/scales/weights: [%lu, %lu, %lu, %lu]\n",
               channelIx,
               node.name.c_str(),
@@ -288,7 +288,7 @@ ModelData* Raw2Gltf(
             // no data, assume it's a material that just relies on the uniform properties
             aoMetRoughTex = nullptr;
             if (verboseOutput) {
-              fmt::printf("Material %s: no ORM textures detected\n", material.name.c_str());
+              fmt::fprintf(stderr, "Material %s: no ORM textures detected\n", material.name.c_str());
             }
           } else if (isPassThroughTexture) {
             // this handles the case where the same map is assigned to all the channels
@@ -299,12 +299,12 @@ ModelData* Raw2Gltf(
                        : (hasOcclusionMap ? simpleTex(RAW_TEXTURE_USAGE_OCCLUSION) : nullptr));
             if (verboseOutput) {
               if (aoMetRoughTex) {
-                fmt::printf(
+                fmt::fprintf(stderr, 
                     "Material %s: detected single ORM texture: %s\n",
                     material.name.c_str(),
                     aoMetRoughTex->name.c_str());
               } else {
-                fmt::printf("Material %s: no ORM textures detected\n", material.name.c_str());
+                fmt::fprintf(stderr, "Material %s: no ORM textures detected\n", material.name.c_str());
               }
             }
           } else {
@@ -340,7 +340,7 @@ ModelData* Raw2Gltf(
                 },
                 false);
             if (aoMetRoughTex && verboseOutput) {
-              fmt::printf(
+              fmt::fprintf(stderr, 
                   "Material %s: detected multiple ORM textures, combined: [%s, %s, %s] into [%s]\n",
                   material.name.c_str(),
                   textureName(RAW_TEXTURE_USAGE_OCCLUSION),
@@ -474,7 +474,7 @@ ModelData* Raw2Gltf(
       const MaterialData& mData = require(materialsById, rawMaterial.id);
 
       if (verboseOutput)
-        fmt::printf("\rMaterial Name: %s\n", mData.name);
+        fmt::fprintf(stderr, "\rMaterial Name: %s\n", mData.name);
 
       MeshData* mesh = nullptr;
       auto meshIter = meshBySurfaceId.find(surfaceId);
@@ -675,7 +675,7 @@ ModelData* Raw2Gltf(
           std::shared_ptr<AccessorData> tAcc;
           if (!options.disableSparseBlendShapes) {
             if (verboseOutput)
-              fmt::printf(
+              fmt::fprintf(stderr, 
                   "\rChannel Name: %-50s Sparse Count: %d\n", channel.name, sparseIndices.size());
 
             if (sparseIndices.size() == 0) {
@@ -879,7 +879,7 @@ ModelData* Raw2Gltf(
 
       auto iter = nodesById.find(cam.nodeId);
       if (iter == nodesById.end()) {
-        fmt::printf("Warning: Camera node id %lu does not exist.\n", cam.nodeId);
+        fmt::fprintf(stderr, "Warning: Camera node id %lu does not exist.\n", cam.nodeId);
         continue;
       }
       iter->second->SetCamera(camera.ix);
@@ -946,7 +946,7 @@ ModelData* Raw2Gltf(
         0x00,
         0x00, // total length: written in later
     };
-    gltfOutStream.write(glbHeader, 12);
+    gltfOutStream->write(glbHeader, 12);
 
     // binary glTF 2.0 has a sub-header for each of the JSON and BIN chunks
     const char glb2JsonHeader[] = {
@@ -959,7 +959,7 @@ ModelData* Raw2Gltf(
         'O',
         'N', // chunk type: 0x4E4F534A aka JSON
     };
-    gltfOutStream.write(glb2JsonHeader, 8);
+    gltfOutStream->write(glb2JsonHeader, 8);
   }
 
   {
@@ -987,17 +987,17 @@ ModelData* Raw2Gltf(
 
     gltf->serializeHolders(glTFJson);
 
-    gltfOutStream << glTFJson.dump(options.outputBinary ? 0 : 4);
+    *gltfOutStream << glTFJson.dump(options.outputBinary ? 0 : 4);
   }
   if (options.outputBinary) {
-    uint32_t jsonLength = (uint32_t)gltfOutStream.tellp() - 20;
+    uint32_t jsonLength = (uint32_t)gltfOutStream->tellp() - 20;
     // the binary body must begin on a 4-aligned address, so pad json with spaces if necessary
     while ((jsonLength % 4) != 0) {
-      gltfOutStream.put(' ');
+      gltfOutStream->put(' ');
       jsonLength++;
     }
 
-    uint32_t binHeader = (uint32_t)gltfOutStream.tellp();
+    uint32_t binHeader = (uint32_t)gltfOutStream->tellp();
     // binary glTF 2.0 has a sub-header for each of the JSON and BIN chunks
     const char glb2BinaryHeader[] = {
         0x00,
@@ -1009,43 +1009,43 @@ ModelData* Raw2Gltf(
         'N',
         0x00, // chunk type: 0x004E4942 aka BIN
     };
-    gltfOutStream.write(glb2BinaryHeader, 8);
+    gltfOutStream->write(glb2BinaryHeader, 8);
 
     // append binary buffer directly to .glb file
     size_t binaryLength = gltf->binary->size();
-    gltfOutStream.write((const char*)&(*gltf->binary)[0], binaryLength);
+    gltfOutStream->write((const char*)&(*gltf->binary)[0], binaryLength);
     while ((binaryLength % 4) != 0) {
-      gltfOutStream.put('\0');
+      gltfOutStream->put('\0');
       binaryLength++;
     }
-    uint32_t totalLength = to_uint32(gltfOutStream.tellp());
+    uint32_t totalLength = to_uint32(gltfOutStream->tellp());
 
     // seek back to sub-header for json chunk
-    gltfOutStream.seekp(8);
+    gltfOutStream->seekp(8);
 
     // write total length, little-endian
-    gltfOutStream.put((totalLength >> 0) & 0xFF);
-    gltfOutStream.put((totalLength >> 8) & 0xFF);
-    gltfOutStream.put((totalLength >> 16) & 0xFF);
-    gltfOutStream.put((totalLength >> 24) & 0xFF);
+    gltfOutStream->put((totalLength >> 0) & 0xFF);
+    gltfOutStream->put((totalLength >> 8) & 0xFF);
+    gltfOutStream->put((totalLength >> 16) & 0xFF);
+    gltfOutStream->put((totalLength >> 24) & 0xFF);
 
     // write JSON length, little-endian
-    gltfOutStream.put((jsonLength >> 0) & 0xFF);
-    gltfOutStream.put((jsonLength >> 8) & 0xFF);
-    gltfOutStream.put((jsonLength >> 16) & 0xFF);
-    gltfOutStream.put((jsonLength >> 24) & 0xFF);
+    gltfOutStream->put((jsonLength >> 0) & 0xFF);
+    gltfOutStream->put((jsonLength >> 8) & 0xFF);
+    gltfOutStream->put((jsonLength >> 16) & 0xFF);
+    gltfOutStream->put((jsonLength >> 24) & 0xFF);
 
     // seek back to the gltf 2.0 binary chunk header
-    gltfOutStream.seekp(binHeader);
+    gltfOutStream->seekp(binHeader);
 
     // write total length, little-endian
-    gltfOutStream.put((binaryLength >> 0) & 0xFF);
-    gltfOutStream.put((binaryLength >> 8) & 0xFF);
-    gltfOutStream.put((binaryLength >> 16) & 0xFF);
-    gltfOutStream.put((binaryLength >> 24) & 0xFF);
+    gltfOutStream->put((binaryLength >> 0) & 0xFF);
+    gltfOutStream->put((binaryLength >> 8) & 0xFF);
+    gltfOutStream->put((binaryLength >> 16) & 0xFF);
+    gltfOutStream->put((binaryLength >> 24) & 0xFF);
 
     // be tidy and return write pointer to end-of-file
-    gltfOutStream.seekp(0, std::ios::end);
+    gltfOutStream->seekp(0, std::ios::end);
   }
 
   return new ModelData(gltf->binary);

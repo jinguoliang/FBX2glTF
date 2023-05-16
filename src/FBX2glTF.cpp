@@ -21,6 +21,8 @@
 #include "utils/String_Utils.hpp"
 
 bool verboseOutput = false;
+bool useStdin = false;
+bool useStdout = false;
 
 int main(int argc, char* argv[]) {
   GltfOptions gltfOptions;
@@ -31,12 +33,22 @@ int main(int argc, char* argv[]) {
       "FBX2glTF"};
 
   app.add_flag(
+      "-I,--stdin",
+      useStdin,
+      "Read FBX from stdin.");
+
+  app.add_flag(
+      "-O,--stdout",
+      useStdout,
+      "Write glTF to stdout.");
+
+  app.add_flag(
       "-v,--verbose",
       verboseOutput,
       "Print verbose processing output.");
 
   app.add_flag_function("-V,--version", [&](size_t count) {
-    fmt::printf("FBX2glTF version %s\nCopyright (c) 2016-2018 Oculus VR, LLC.\n", FBX2GLTF_VERSION);
+    fmt::fprintf(stderr, "FBX2glTF version %s\nCopyright (c) 2016-2018 Oculus VR, LLC.\n", FBX2GLTF_VERSION);
     exit(0);
   });
 
@@ -68,7 +80,7 @@ int main(int argc, char* argv[]) {
              } else if (choice == "always") {
                gltfOptions.useLongIndices = UseLongIndicesOptions::ALWAYS;
              } else {
-               fmt::printf("Unknown --long-indices: %s\n", choice);
+               fmt::fprintf(stderr, "Unknown --long-indices: %s\n", choice);
                throw CLI::RuntimeError(1);
              }
            }
@@ -90,7 +102,7 @@ int main(int argc, char* argv[]) {
              } else if (choice == "always") {
                gltfOptions.computeNormals = ComputeNormalsOption::ALWAYS;
              } else {
-               fmt::printf("Unknown --compute-normals option: %s\n", choice);
+               fmt::fprintf(stderr, "Unknown --compute-normals option: %s\n", choice);
                throw CLI::RuntimeError(1);
              }
            }
@@ -110,7 +122,7 @@ int main(int argc, char* argv[]) {
              } else if (choice == "bake60") {
                gltfOptions.animationFramerate = AnimationFramerateOptions::BAKE60;
              } else {
-               fmt::printf("Unknown --anim-framerate: %s\n", choice);
+               fmt::fprintf(stderr, "Unknown --anim-framerate: %s\n", choice);
                throw CLI::RuntimeError(1);
              }
            }
@@ -197,7 +209,7 @@ int main(int argc, char* argv[]) {
              } else if (attribute == "auto") {
                gltfOptions.keepAttribs |= RAW_VERTEX_ATTRIBUTE_AUTO;
              } else {
-               fmt::printf("Unknown --keep-attribute option: %s\n", attribute);
+               fmt::fprintf(stderr, "Unknown --keep-attribute option: %s\n", attribute);
                throw CLI::RuntimeError(1);
              }
            }
@@ -284,33 +296,29 @@ int main(int argc, char* argv[]) {
   }
   if (verboseOutput) {
     if (do_flip_u) {
-      fmt::printf("Flipping texture coordinates in the 'U' dimension.\n");
+      fmt::fprintf(stderr, "Flipping texture coordinates in the 'U' dimension.\n");
     }
     if (!do_flip_v) {
-      fmt::printf("NOT flipping texture coordinates in the 'V' dimension.\n");
+      fmt::fprintf(stderr, "NOT flipping texture coordinates in the 'V' dimension.\n");
     }
   }
 
-  if (inputPath.empty()) {
-    fmt::printf("You must supply a FBX file to convert.\n");
+  if (!useStdin && inputPath.empty()) {
+    fmt::fprintf(stderr, "You must supply a FBX file to convert.\n");
     exit(1);
   }
 
   if (!gltfOptions.useKHRMatUnlit && !gltfOptions.usePBRMetRough) {
     if (verboseOutput) {
-      fmt::printf("Defaulting to --pbr-metallic-roughness material support.\n");
+      fmt::fprintf(stderr, "Defaulting to --pbr-metallic-roughness material support.\n");
     }
     gltfOptions.usePBRMetRough = true;
   }
 
   if (gltfOptions.embedResources && gltfOptions.outputBinary) {
-    fmt::printf("Note: Ignoring --embed; it's meaningless with --binary.\n");
+    fmt::fprintf(stderr, "Note: Ignoring --embed; it's meaningless with --binary.\n");
   }
 
-  if (outputPath.empty()) {
-    // if -o is not given, default to the basename of the .fbx
-    outputPath = "./" + FileUtils::GetFileBase(inputPath);
-  }
   // the output folder in .gltf mode, not used for .glb
   std::string outputFolder;
 
@@ -318,40 +326,49 @@ int main(int argc, char* argv[]) {
   std::string modelPath;
   const auto& suffix = FileUtils::GetFileSuffix(outputPath);
 
-  // Assume binary output if extension is glb
-  if (suffix.has_value() && suffix.value() == "glb") {
+  if (useStdout) {
     gltfOptions.outputBinary = true;
-  }
+  } else {
+    if (outputPath.empty()) {
+      // if -o is not given, default to the basename of the .fbx
+      outputPath = "./" + FileUtils::GetFileBase(inputPath);
+    }
 
-  if (gltfOptions.outputBinary) {
-    // add .glb to output path, unless it already ends in exactly that
-    outputFolder = FileUtils::getFolder(outputPath) + "/";
+    // Assume binary output if extension is glb
     if (suffix.has_value() && suffix.value() == "glb") {
+      gltfOptions.outputBinary = true;
+    }
+
+    if (gltfOptions.outputBinary) {
+      // add .glb to output path, unless it already ends in exactly that
+      outputFolder = FileUtils::getFolder(outputPath) + "/";
+      if (suffix.has_value() && suffix.value() == "glb") {
+        modelPath = outputPath;
+      } else {
+        modelPath = outputPath + ".glb";
+      }
+      // if the extension is gltf set the output folder to the parent directory
+    } else if (suffix.has_value() && suffix.value() == "gltf") {
+      outputFolder = FileUtils::getFolder(outputPath) + "/";
       modelPath = outputPath;
     } else {
-      modelPath = outputPath + ".glb";
+      // in gltf mode, we create a folder and write into that
+      outputFolder = fmt::format("{}_out/", outputPath.c_str());
+      modelPath = outputFolder + FileUtils::GetFileName(outputPath) + ".gltf";
     }
-    // if the extension is gltf set the output folder to the parent directory
-  } else if (suffix.has_value() && suffix.value() == "gltf") {
-    outputFolder = FileUtils::getFolder(outputPath) + "/";
-    modelPath = outputPath;
-  } else {
-    // in gltf mode, we create a folder and write into that
-    outputFolder = fmt::format("{}_out/", outputPath.c_str());
-    modelPath = outputFolder + FileUtils::GetFileName(outputPath) + ".gltf";
-  }
-  if (!FileUtils::CreatePath(modelPath.c_str())) {
-    fmt::fprintf(stderr, "ERROR: Failed to create folder: %s'\n", outputFolder.c_str());
-    return 1;
+    if (!FileUtils::CreatePath(modelPath.c_str())) {
+      fmt::fprintf(stderr, "ERROR: Failed to create folder: %s'\n", outputFolder.c_str());
+      return 1;
+    }
   }
 
   ModelData* data_render_model = nullptr;
   RawModel raw;
 
   if (verboseOutput) {
-    fmt::printf("Loading FBX File: %s\n", inputPath);
+    fmt::fprintf(stderr, "Loading FBX File: %s\n", inputPath);
   }
-  if (!LoadFBXFile(raw, inputPath, {"png", "jpg", "jpeg"}, gltfOptions)) {
+  if (!LoadFBXFile(raw, inputPath, {"png", "jpg", "jpeg"}, gltfOptions, useStdin)) {
     fmt::fprintf(stderr, "ERROR:: Failed to parse FBX: %s\n", inputPath);
     return 1;
   }
@@ -362,28 +379,39 @@ int main(int argc, char* argv[]) {
   raw.Condense(gltfOptions.maxSkinningWeights, gltfOptions.normalizeSkinningWeights);
   raw.TransformGeometry(gltfOptions.computeNormals);
 
-  std::ofstream outStream; // note: auto-flushes in destructor
-  const auto streamStart = outStream.tellp();
+  std::ostream* outStream; // note: auto-flushes in destructor
 
-  outStream.open(modelPath, std::ios::trunc | std::ios::ate | std::ios::out | std::ios::binary);
-  if (outStream.fail()) {
-    fmt::fprintf(stderr, "ERROR:: Couldn't open file for writing: %s\n", modelPath.c_str());
-    return 1;
+  if (useStdout) {
+    // Redirect outStream to string stream, to dump out later
+    outStream = new std::stringstream(std::stringstream::out | std::stringstream::binary); // &std::cout;
+  } else {
+    outStream = new std::ofstream();
+    ((std::ofstream*)outStream)->open(modelPath, std::ios::trunc | std::ios::ate | std::ios::out | std::ios::binary);
+    if (outStream->fail()) {
+      fmt::fprintf(stderr, "ERROR:: Couldn't open file for writing: %s\n", modelPath.c_str());
+      return 1;
+    }
   }
+
+  const auto streamStart = outStream->tellp();
+
   data_render_model = Raw2Gltf(outStream, outputFolder, raw, gltfOptions);
 
   if (gltfOptions.outputBinary) {
-    fmt::printf(
+    if (useStdout) {
+      std::cout.write(((std::stringstream*)outStream)->str().c_str(), ((std::stringstream*)outStream)->str().size());
+    }
+    fmt::fprintf(stderr, 
         "Wrote %lu bytes of binary glTF to %s.\n",
-        (unsigned long)(outStream.tellp() - streamStart),
-        modelPath);
+        (unsigned long)(outStream->tellp() - streamStart),
+        useStdout ? "stdout" : modelPath);
     delete data_render_model;
     return 0;
   }
 
-  fmt::printf(
+  fmt::fprintf(stderr, 
       "Wrote %lu bytes of glTF to %s.\n",
-      (unsigned long)(outStream.tellp() - streamStart),
+      (unsigned long)(outStream->tellp() - streamStart),
       modelPath);
 
   if (gltfOptions.embedResources) {
@@ -411,7 +439,7 @@ int main(int argc, char* argv[]) {
       return 1;
     }
     fclose(fp);
-    fmt::printf("Wrote %lu bytes of binary data to %s.\n", binarySize, binaryPath);
+    fmt::fprintf(stderr, "Wrote %lu bytes of binary data to %s.\n", binarySize, binaryPath);
   }
 
   delete data_render_model;

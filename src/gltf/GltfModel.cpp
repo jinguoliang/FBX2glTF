@@ -53,10 +53,10 @@ std::shared_ptr<BufferViewData> GltfModel::AddBufferViewForFile(
     if (file.read(fileBuffer.data(), size)) {
       result = AddRawBufferView(buffer, fileBuffer.data(), to_uint32(size));
     } else {
-      fmt::printf("Warning: Couldn't read %lu bytes from %s, skipping file.\n", size, filename);
+      fmt::fprintf(stderr, "Warning: Couldn't read %lu bytes from %s, skipping file.\n", size, filename);
     }
   } else {
-    fmt::printf("Warning: Couldn't open file %s, skipping file.\n", filename);
+    fmt::fprintf(stderr, "Warning: Couldn't open file %s, skipping file.\n", filename);
   }
   // note that we persist here not only success, but also failure, as nullptr
   filenameToBufferView[filename] = result;

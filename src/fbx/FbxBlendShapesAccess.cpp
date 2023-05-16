@@ -56,7 +56,7 @@ std::vector<FbxBlendShapesAccess::BlendChannel> FbxBlendShapesAccess::extractCha
         std::string name = std::string(fbxChannel->GetName());
 
         if (verboseOutput) {
-          fmt::printf("\rblendshape channel: %s\n", name);
+          fmt::fprintf(stderr, "\rblendshape channel: %s\n", name);
         }
 
         for (int targetIx = 0; targetIx < fbxChannel->GetTargetShapeCount(); targetIx++) {
