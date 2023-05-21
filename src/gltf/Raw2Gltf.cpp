@@ -134,7 +134,7 @@ ModelData* Raw2Gltf(
       const RawNode& node = raw.GetNode(i);
 
       auto nodeData = gltf->nodes.hold(
-          new NodeData(node.name, node.translation, node.rotation, node.scale, node.pivot, node.isJoint));
+          new NodeData(node.name, node.translation, node.rotation, node.scale, node.pivot, node.originalUnits, node.isJoint));
 
       if (options.enableUserProperties) {
         nodeData->userProperties = node.userProperties;

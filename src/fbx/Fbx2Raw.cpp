@@ -880,6 +880,7 @@ static void ReadNodeHierarchy(
   node.rotation = toQuatf(localRotation);
   node.scale = toVec3f(localScaling);
   node.pivot = toVec3f(pNode->GetRotationPivot(FbxNode::eSourcePivot)) * scaleFactor;
+  node.originalUnits = raw.GetOriginalUnits();
 
   if (parentId) {
     RawNode& parentNode = raw.GetNode(raw.GetNodeById(parentId));
@@ -1342,6 +1343,8 @@ bool LoadFBXFile(
   }
   // this is always 0.01, but let's opt for clarity.
   scaleFactor = FbxSystemUnit::m.GetConversionFactorFrom(FbxSystemUnit::cm);
+
+  raw.SetOriginalUnits(FbxSystemUnit::m.GetConversionFactorFrom(sceneSystemUnit));
 
   ReadNodeHierarchy(raw, pScene, pScene->GetRootNode(), 0, "");
   ReadNodeAttributes(raw, pScene, pScene->GetRootNode(), textureLocations);

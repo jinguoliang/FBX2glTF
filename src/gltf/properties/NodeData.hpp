@@ -17,6 +17,7 @@ struct NodeData : Holdable {
       const Quatf& rotation,
       const Vec3f& scale,
       const Vec3f& pivot,
+      const float originalUnits,
       bool isJoint);
 
   void AddChildNode(uint32_t childIx);
@@ -33,6 +34,7 @@ struct NodeData : Holdable {
   Quatf rotation;
   Vec3f scale;
   Vec3f pivot;
+  float originalUnits;
   std::vector<uint32_t> children;
   int32_t mesh;
   int32_t camera;

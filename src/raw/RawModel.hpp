@@ -353,6 +353,7 @@ struct RawNode {
   Quatf rotation;
   Vec3f scale;
   Vec3f pivot;
+  float originalUnits;
   long surfaceId;
   long lightIx;
   std::vector<std::string> userProperties;
@@ -417,6 +418,13 @@ class RawModel {
   }
   const long GetRootNode() const {
     return rootNodeId;
+  }
+
+  void SetOriginalUnits(const float units) {
+    originalUnits = units;
+  }
+  const float GetOriginalUnits() const {
+    return originalUnits;
   }
 
   // Remove unused vertices, textures or materials after removing vertex attributes, textures,
@@ -545,6 +553,7 @@ class RawModel {
  private:
   Vec3f getFaceNormal(int verts[3]) const;
 
+  float originalUnits;
   long rootNodeId;
   int vertexAttributes;
   int globalMaxWeights;
